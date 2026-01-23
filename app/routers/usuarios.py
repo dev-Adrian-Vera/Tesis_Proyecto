@@ -1,17 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from servicios.sesiones import actualizar_usuario, obtener_sesiones, obtener_usuarios, registrar_sesion_usuario_exito, registrar_sesion_usuario_fallido
+from servicios.sesiones import actualizar_usuario, obtener_aves, obtener_predicciones_mas_frecuentes, obtener_predicciones_mas_frecuentes_usuario, obtener_sesiones, obtener_usuarios, registrar_sesion_usuario_exito, registrar_sesion_usuario_fallido
 from db.database import get_db
 from servicios import esquema
 from db import modelos
 from servicios.seguridad import get_current_user, hash_password
 from servicios.seguridad import verify_password, create_access_token
 
+#--------------------------------------------------
+# RUTAS GESTION USUARIOS 
+#--------------------------------------------------
 
 router = APIRouter(prefix="/v1/usuarios", tags=["Gestion_Usuarios"])
 
-#Registro de usuario en sistema.
+#--------------------------------------------------
+# Registro de usuario en sistema.
+#--------------------------------------------------
+
 @router.post("/registro")
 def register(user: esquema.UserCreate, db: Session = Depends(get_db)):
     role = db.query(modelos.Role).filter_by(name=user.role).first()
@@ -28,7 +34,9 @@ def register(user: esquema.UserCreate, db: Session = Depends(get_db)):
     db.commit()
     return {"mensaje": "Usuario creado correctamente, por favor inicie sesión."}
 
-#LOGIN
+#--------------------------------------------------
+# LOGIN DEL SISTEMA.
+#--------------------------------------------------
 @router.post("/login")
 def login(
     request: Request,
@@ -79,6 +87,9 @@ def login(
         "token_type": "bearer"
     }
 
+#--------------------------------------------------
+# RUTAS PROTEGIDAS - USUARIOS LOGEADOS
+#--------------------------------------------------
 @router.get("/Listar_sesiones")
 def listar_sesiones(
     db: Session = Depends(get_db),
@@ -102,12 +113,22 @@ def listar_sesiones(
         for s in sesiones
     ]
 
-@router.put("/actualizar_usuario")
+#--------------------------------------------------
+# ACTUALIZAR PERFIL USUARIO
+#--------------------------------------------------
+
+@router.put("/actualiza_usuario")
 def actualizar_perfil(
     data: esquema.UsuarioUpdateRequest,
     db: Session = Depends(get_db),
     usuario = Depends(get_current_user)
 ):
+    if not data.dict(exclude_unset=True):
+        raise HTTPException(
+            status_code=400,
+            detail="Debe enviar al menos un campo para actualizar"
+        )
+
     usuario_actualizado = actualizar_usuario(
         db=db,
         usuario_id=usuario.id_usuario,
@@ -117,5 +138,6 @@ def actualizar_perfil(
     return {
         "mensaje": "Perfil actualizado correctamente",
         "nombre_completo": usuario_actualizado.nombre_completo,
-        "email": usuario_actualizado.email
+        "usuario_activo": usuario_actualizado.usuario_activo
     }
+#--------------------------------------------------
