@@ -3,16 +3,16 @@ from jose import jwt, JWTError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-
+from fastapi import Depends, HTTPException, status
 from db.database import get_db
 from db.modelos import Usuario
-
 import hashlib
 import bcrypt
 
 SECRET_KEY = "Atom_0909"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ADMIN_ROLE_ID = 0
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/v1/usuarios/login")
 
@@ -65,15 +65,18 @@ def get_current_user(
     if user is None:
         raise credentials_exception
 
+    # VALIDACIÓN DE CUENTA ACTIVA
+    if not user.usuario_activo:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="La cuenta de usuario se encuentra inactiva"
+        )
+
     return user
 
 # ------------------------------------------------------------------
 # AUTORIZACIÓN ADMIN
 # ------------------------------------------------------------------
-from fastapi import Depends, HTTPException, status
-from servicios.seguridad import get_current_user
-
-ADMIN_ROLE_ID = 0
 
 def require_admin(usuario = Depends(get_current_user)):
     if usuario.role_id != ADMIN_ROLE_ID:
