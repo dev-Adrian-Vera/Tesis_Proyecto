@@ -61,6 +61,17 @@ def audio_a_logmel(y, sr):
 
     return S_norm
 
+# Obtener URL de imagen de ave por nombre científico.
+
+def obtener_imagen_ave(db: Session, nombre_cientifico: str):
+    ave = (
+        db.query(Ave)
+        .filter(Ave.nombre_cientifico == nombre_cientifico)
+        .first()
+    )
+
+    return ave.url_imagen if ave else None
+
 # Predicción de especie desde archivo de audio
 
 def predecir_audio(
