@@ -24,10 +24,20 @@ def registrar_inferencia(
 
 
 def obtener_inferencias(db: Session, usuario):
+
     query = db.query(EjecucionInferencia)
 
-    if usuario.role_id != ADMIN_ROLE_ID:
-        query = query.filter(EjecucionInferencia.id_usuario == usuario.id_usuario)
+    return (
+        query
+        .filter(EjecucionInferencia.id_usuario == usuario.id_usuario)
+        .order_by(EjecucionInferencia.fecha_ejecuta.desc())
+        .all()
+    )
+
+
+def obtener_inferencias_admin(db: Session):
+
+    query = db.query(EjecucionInferencia)
 
     return (
         query
