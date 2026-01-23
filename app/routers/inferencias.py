@@ -2,11 +2,13 @@ from time import perf_counter
 from fastapi import APIRouter, Form, UploadFile, File, Depends, HTTPException
 import librosa
 from sqlalchemy.orm import Session
+from servicios.sesiones import obtener_aves, obtener_predicciones_mas_frecuentes, obtener_predicciones_mas_frecuentes_usuario
+from db import modelos
 from db.modelos import EjecucionInferencia
 from servicios.log_errores import registrar_error_sistema
 from servicios.hist_inferencias import obtener_inferencias, registrar_inferencia, registrar_metadata_audio
 from servicios.seguridad import get_current_user
-from servicios.prediccion import TARGET_SR, predecir_audio
+from servicios.prediccion import TARGET_SR, obtener_imagen_ave, predecir_audio
 from db.database import get_db
 import io
 
@@ -104,6 +106,7 @@ async def upload_audio(
     tiempo = perf_counter() - inicio
     prediccion_principal = resultados[0]["nombre_cientifico"]
     confianza = resultados[0]["probabilidad"]
+    imagen_url = obtener_imagen_ave(db, prediccion_principal)
 
     registrar_inferencia(
        db=db,
@@ -125,14 +128,19 @@ async def upload_audio(
         localizacion=localizacion if localizacion else 'No especificada'
     )
 
-
     return {
+    "prediccion_principal": {
         "usuario": usuario.nombre_completo,
         "archivo": file.filename,
         "duracion_audio": f"{duracion:.2f} segundos.",
         "tiempo_ejecucion": f"{tiempo:.2f} segundos.",
-        "predicciones": resultados
-    }
+        "especie": prediccion_principal,
+        "probabilidad": confianza,
+        "url_imagen": imagen_url
+    },
+    "top_5_predicciones": resultados
+}
+
 
 @router.get("/historial")
 def listar_inferencias(
@@ -148,7 +156,70 @@ def listar_inferencias(
             "confianza": i.confianza,
             "top_5": i.top_5,
             "tiempo_ejecucion": i.tiempo_ejecucion,
-            "fecha": i.fecha_ejecuta
+            "fecha": i.fecha_ejecuta,
+            "usuario": db.query(modelos.Usuario).filter(modelos.Usuario.id_usuario == i.id_usuario).first().nombre_completo if i.id_usuario else "Anónimo"
         }
         for i in inferencias
     ]
+
+
+#--------------------------------------------------
+# LISTAR AVES REGISTRADAS EN SISTEMA
+#--------------------------------------------------
+@router.get("/listar_aves")
+def listar_aves(
+    db: Session = Depends(get_db),
+    usuario = Depends(get_current_user)
+):
+
+    aves = obtener_aves(db)
+
+    return [
+        {
+            "id_ave": u.id_ave,
+            "nombre_cientifico": u.nombre_cientifico,
+            "imagen_url": u.url_imagen,
+        }
+        for u in aves
+    ]
+
+#--------------------------------------------------
+# LISTAR PREDICCIONES MAS FRECUENTES
+#--------------------------------------------------
+@router.get("/predicciones_mas_frecuentes_general")
+def predicciones_mas_frecuentes(
+    db: Session = Depends(get_db),
+    usuario = Depends(get_current_user)
+):
+  
+    resultados = obtener_predicciones_mas_frecuentes(db)
+
+    return [
+        {
+            "prediccion_especie": r.prediccion_especie,
+            "cantidad": r.cantidad_prediccion
+        }
+        for r in resultados
+    ]
+
+#--------------------------------------------------
+# LISTAR PREDICCIONES MAS FRECUENTES POR USUARIO
+#--------------------------------------------------
+@router.get("/predicciones_mas_frecuentes_usuario")
+def predicciones_mas_frecuentes_usuario(
+    db: Session = Depends(get_db),
+    usuario = Depends(get_current_user)
+):
+
+    resultados = obtener_predicciones_mas_frecuentes_usuario(db, usuario)
+
+    return {
+        "usuario": usuario.nombre_completo,
+        "predicciones": [
+            {
+                "prediccion_especie": r.prediccion_especie,
+                "cantidad": r.cantidad_prediccion
+            }
+            for r in resultados
+        ]
+    }
