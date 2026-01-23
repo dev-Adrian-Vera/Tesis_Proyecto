@@ -28,7 +28,7 @@ class Ave(Base):
     nombre = Column(String, nullable=True)
     nombre_cientifico = Column(String, nullable=False)
     localizaciones = Column(JSONB, nullable=True)
-    descripcion = Column(String, nullable=True)
+    url_imagen = Column(String, nullable=True)
 
 class SesionUsuario(Base):
     __tablename__ = "sesiones_usuarios"
