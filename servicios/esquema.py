@@ -18,3 +18,4 @@ class Token(BaseModel):
 class UsuarioUpdateRequest(BaseModel):
     nombre_completo: Optional[str] = Field(None, min_length=3, max_length=150)
     password: Optional[str] = Field(None, min_length=8, max_length=64)
+    usuario_activo: Optional[bool] = None
