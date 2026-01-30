@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from servicios.sesiones import actualizar_usuario, obtener_aves, obtener_predicciones_mas_frecuentes, obtener_predicciones_mas_frecuentes_usuario, obtener_sesiones, obtener_usuarios, registrar_sesion_usuario_exito, registrar_sesion_usuario_fallido
+from servicios.sesiones import actualizar_usuario, obtener_aves, obtener_predicciones_mas_frecuentes, obtener_predicciones_mas_frecuentes_usuario, obtener_sesiones, obtener_usuario_nombre, obtener_usuarios, registrar_sesion_usuario_exito, registrar_sesion_usuario_fallido
 from db.database import get_db
 from servicios import esquema
 from db import modelos
@@ -52,6 +52,19 @@ def login(
             status_code=401,
             detail="Credenciales inválidas, intente de nuevo."
         )
+    if not usuario.usuario_activo:
+        registrar_sesion_usuario_fallido(
+            db=db,
+            id_usuario=usuario.id_usuario,
+            estado="FALLIDO",
+            ip=request.client.host,
+            agente=request.headers.get("user-agent"),
+            observacion="Usuario inactivo"
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="Usuario inactivo. Contacte al administrador."
+        )
 
     if not verify_password(form_data.password, usuario.contraseña_hash):
         #registrar intento fallido
@@ -63,10 +76,7 @@ def login(
             agente=request.headers.get("user-agent"),
             observacion="Contraseña incorrecta"
         )
-        raise HTTPException(
-            status_code=401,
-            detail="Credenciales inválidas, intente de nuevo."
-        )
+
 
     # SOLO SI TODO FUE CORRECTO
     registrar_sesion_usuario_exito(
@@ -111,6 +121,29 @@ def listar_sesiones(
             "observacion": s.observacion
         }
         for s in sesiones
+    ]
+
+
+#--------------------------------------------------
+# CONSULTA USUARIOS SISTEMA POR NOMBRE
+#--------------------------------------------------
+@router.get("/buscar_usuarios")
+def buscar_usuarios(
+    nombre: str,
+    db: Session = Depends(get_db),
+    usuario = Depends(get_current_user)
+):
+    usuarios = obtener_usuario_nombre(db, nombre)
+
+    return [
+        {
+            "id_usuario": u.id_usuario,
+            "email": u.email,
+            "nombre_completo": u.nombre_completo,
+            "role": "admin" if u.role_id == 0 else "usuario",
+            "usuario_activo": u.usuario_activo
+        }
+        for u in usuarios
     ]
 
 #--------------------------------------------------
