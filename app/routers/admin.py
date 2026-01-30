@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from db import modelos
 from servicios.hist_inferencias import obtener_inferencias_admin
-from servicios.sesiones import obtener_sesiones_admin, obtener_usuarios
+from servicios.sesiones import  obtener_sesiones_admin, obtener_usuario_nombre, obtener_usuarios, obtener_usuarios_inactivos_nombre
 from db.database import get_db
 from servicios.seguridad import get_current_user, require_admin
 from servicios.log_errores import obtener_logs_error
@@ -109,3 +109,50 @@ def listar_inferencias(
         }
         for i in inferencias
     ]
+
+@router.get("/usuarios_inactivos/buscar")
+def buscar_usuarios_inactivos(
+    nombre: str,
+    db: Session = Depends(get_db),
+    admin = Depends(require_admin)
+):
+    usuarios = obtener_usuarios_inactivos_nombre(db, nombre)
+    
+    if not usuarios:
+        raise HTTPException(404, "No se encontraron usuarios inactivos con ese nombre")
+
+    return [
+        {
+            "id_usuario": u.id_usuario,
+            "nombre_completo": u.nombre_completo,
+            "email": u.email,
+            "fecha_desactivacion": u.fecha_actualizacion
+        }
+        for u in usuarios
+    ]
+
+@router.put("/usuarios/{id_usuario}/reactivar")
+def reactivar_usuario(
+    id_usuario: int,
+    db: Session = Depends(get_db),
+    admin = Depends(require_admin)
+):
+    usuario = db.query(modelos.Usuario).filter(
+        modelos.Usuario.id_usuario == id_usuario
+    ).first()
+
+    if not usuario:
+        raise HTTPException(404, "Usuario no encontrado")
+
+    if usuario.usuario_activo:
+        raise HTTPException(400, "El usuario ya está activo")
+
+    usuario.usuario_activo = True
+    usuario.fecha_desactivacion = None
+
+    db.commit()
+
+    return {
+        "mensaje": f"Usuario {usuario.nombre_completo} reactivado correctamente"
+    }
+
