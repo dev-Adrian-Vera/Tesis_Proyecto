@@ -94,7 +94,12 @@ def login(
 
     return {
         "access_token": access_token,
-        "token_type": "bearer"
+        "token_type": "bearer",
+        "usuario": {
+            "email": usuario.email,
+            "nombre_completo": usuario.nombre_completo,
+            "role_id": usuario.role_id
+        }
     }
 
 #--------------------------------------------------
@@ -172,5 +177,20 @@ def actualizar_perfil(
         "mensaje": "Perfil actualizado correctamente",
         "nombre_completo": usuario_actualizado.nombre_completo,
         "usuario_activo": usuario_actualizado.usuario_activo
+    }
+
+@router.get("/me")
+def read_users_me(usuario = Depends(get_current_user)):
+    """
+    Devuelve los datos del usuario logueado basándose en el token.
+    No requiere parámetros.
+    """
+    return {
+        "id_usuario": usuario.id_usuario,
+        "email": usuario.email,
+        "nombre_completo": usuario.nombre_completo,
+        "role_id": usuario.role_id,
+        "role": "admin" if usuario.role_id == 0 else "usuario",
+        "usuario_activo": usuario.usuario_activo
     }
 #--------------------------------------------------
